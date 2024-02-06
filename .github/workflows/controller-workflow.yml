@@ -1,0 +1,56 @@
+name: Friendlyfl Controller Workflow
+
+on:
+  push:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  setup-and-run-tests:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+    env:
+      REDIS_HOST: 127.0.0.1
+    steps:
+    - uses: actions/checkout@v4
+    - name: Setup Python (v3.10.10)
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10.10'
+    - name: Setup poetry
+      uses: abatilo/actions-poetry@v3
+      with:
+        python-version: '3.10.10'
+    - name: Rename env file
+      run: mv .env.example .env
+    - name: Create external docker network
+      run: docker network create friendlyfl-controller_network
+    - name: Run Tests
+      run: |
+        git clone https://github.com/denoslab/friendlyfl-router
+        cd friendlyfl-router
+        docker-compose build
+        docker-compose up -d
+        cd ../
+        python3 -m venv .venv
+        source .venv/bin/activate
+        poetry install
+        python3 manage.py test
+        deactivate
+
+  run-controller-services:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rename env file
+        run: mv .env.example .env
+      - name: Build images
+        run: docker-compose build
+      - name: Run services
+        run: docker-compose up -d
+
+
