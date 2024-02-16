@@ -17,6 +17,8 @@ services:
     command: bash -c "cron && poetry run python3 manage.py runserver 0.0.0.0:8000"
     volumes:
       - artifacts:/friendlyfl-controller/local
+    networks:
+      - network
 
   controller-scheduler:
     build:
@@ -29,6 +31,8 @@ services:
     entrypoint: [ "poetry", "run", "celery", "-A", "friendlyfl", "beat", "-l", "DEBUG" ]
     volumes:
       - artifacts:/friendlyfl-controller/local
+    networks:
+      - network
 
   controller-run-worker:
     build:
@@ -41,6 +45,8 @@ services:
     entrypoint: [ "poetry", "run", "celery", "-A", "friendlyfl", "worker", "-l", "DEBUG", "-Q", "friendlyfl.run" ]
     volumes:
       - artifacts:/friendlyfl-controller/local
+    networks:
+      - network
 
   controller-processor-worker:
     build:
@@ -53,6 +59,8 @@ services:
     entrypoint: [ "poetry", "run", "celery", "-A", "friendlyfl", "worker", "-l", "DEBUG", "--concurrency=1", "-Q", "friendlyfl.processor" ]
     volumes:
       - artifacts:/friendlyfl-controller/local
+    networks:
+      - network
 
 
   redis:
@@ -61,7 +69,12 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/opt/redis/data
+    networks:
+      - network
 
 volumes:
   artifacts: {}
   redis_data: {}
+
+networks:
+  network:
