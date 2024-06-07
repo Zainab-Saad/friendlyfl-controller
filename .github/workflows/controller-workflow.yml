@@ -1,0 +1,79 @@
+name: Friendlyfl Controller Workflow
+
+on:
+  push:
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  setup-and-run-tests:
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis
+        ports:
+          - 6379:6379
+      postgres:
+        image: postgres
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: UCalgary123
+          POSTGRES_DB: friendlyfl-router
+        options:
+          --name postgres
+      friendlyflrouter:
+        image:  ghcr.io/denoslab/friendlyfl-router:latest
+        ports:
+          - 8000:8000
+        credentials:
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      REDIS_HOST: 127.0.0.1
+      ROUTER_URL: http://127.0.0.1:8000/friendlyfl/api/v1
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Rename env file
+      run: mv .env.example .env
+    - name: Setup Python (v3.10.10)
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10.10'
+    - name: Setup poetry
+      uses: abatilo/actions-poetry@v3
+      with:
+        python-version: '3.10.10'
+    - name: Run Tests
+      run: |
+        python3 -m venv .venv
+        source .venv/bin/activate
+        poetry install
+        python3 manage.py test
+        deactivate
+
+  run-controller-services:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rename env file
+        run: mv .env.example .env
+      - name: Build images
+        run: docker-compose build
+      - name: Run services
+        run: docker-compose up -d
+
+  docker_publish:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and publish docker image for ${{ github.repository }}
+        uses: macbre/push-to-ghcr@master
+        with:
+          image_name: ${{ github.repository }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+
